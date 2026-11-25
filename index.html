@@ -568,6 +568,37 @@
 </div>
 
 <script>
+  // Identitas sekolah dan guru disimpan terpusat agar semua dokumen memakai sumber yang sama.
+  const identityStorageKey = 'rohangDigitalIdentity_v1';
+  const defaultIdentity = {
+    principal: { name: 'Heni Kurniasih, S.Pd.', nip: '19760626 200801 2 014', title: 'Plt. Kepala Sekolah' },
+    place: 'Pandeglang', date: '',
+    teachers: [{ id: 'guru-1', name: 'Iwan Ridwan Malik, S.Pd.', nip: '19840514 201101 1 003', classes: ['VII','VIII','IX'] }]
+  };
+  let schoolIdentity = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(identityStorageKey) || 'null');
+      if (saved && saved.principal && Array.isArray(saved.teachers)) return saved;
+    } catch (e) {}
+    return JSON.parse(JSON.stringify(defaultIdentity));
+  })();
+  const saveSchoolIdentity = () => {
+    try { localStorage.setItem(identityStorageKey, JSON.stringify(schoolIdentity)); return true; }
+    catch (e) { return false; }
+  };
+  const escIdentity = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const teacherForClass = cls => schoolIdentity.teachers.find(t => (t.classes || []).includes(cls)) || {name:'',nip:''};
+  const formatIdentityDate = value => {
+    if (!value) return '................................';
+    const d = new Date(value + 'T00:00:00');
+    return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+  };
+  const signatureDateLine = () => `${escIdentity(schoolIdentity.place || '')}, ${escIdentity(formatIdentityDate(schoolIdentity.date || ''))}`;
+  const signatureMarkup = (cls, role='Guru Mata Pelajaran<br>Bahasa Sunda') => {
+    const p = schoolIdentity.principal || {};
+    const t = teacherForClass(cls);
+    return `<div class="signature-date" style="text-align:right">${signatureDateLine()}</div><div>Mengetahui,<br>${escIdentity(p.title || 'Kepala Sekolah')}<div class="space"></div><b>${escIdentity(p.name || '')}</b><br>NIP. ${escIdentity(p.nip || '')}</div><div>${role}<div class="space"></div><b>${escIdentity(t.name || '')}</b><br>NIP. ${escIdentity(t.nip || '')}</div>`;
+  };
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('overlay');
   const mobileMenu = document.getElementById('mobileMenu');
@@ -1336,6 +1367,44 @@
 
         <section class="identity-section">
           <div class="identity-section-head">
+            <div><h2>Tempat dan Tanggal Dokumen</h2><p>Diisi manual dan digunakan pada bagian titimangsa Prota, Prosem, dan Modul Ajar.</p></div>
+          </div>
+          <div class="identity-plan">
+            <div class="identity-plan-grid">
+              <div class="identity-field"><label for="identityPlace">Tempat</label><input id="identityPlace" type="text" placeholder="Contoh: Pandeglang"></div>
+              <div class="identity-field"><label for="identityDate">Tanggal</label><input id="identityDate" type="date"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="identity-section">
+          <div class="identity-section-head">
+            <div><h2>Identitas Kepala Sekolah</h2><p>Identitas ini digunakan pada bagian pengesahan dokumen Prota, Prosem, dan Modul Ajar.</p></div>
+          </div>
+          <div class="identity-plan">
+            <div class="identity-plan-grid">
+              <div class="identity-field"><label for="principalName">Nama Kepala Sekolah</label><input id="principalName" type="text"></div>
+              <div class="identity-field"><label for="principalNip">NIP Kepala Sekolah</label><input id="principalNip" type="text"></div>
+              <div class="identity-field"><label for="principalTitle">Jabatan</label><input id="principalTitle" type="text"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="identity-section">
+          <div class="identity-section-head">
+            <div><h2>Data Guru Mata Pelajaran</h2><p>Tambahkan guru yang mengajar Bahasa Sunda. Satu guru dapat ditugaskan pada lebih dari satu kelas.</p></div>
+            <button type="button" class="kktp-action primary" id="addTeacher">+ Tambah Guru</button>
+          </div>
+          <div id="teacherIdentityList"></div>
+          <div class="modul-toolbar" style="margin-top:12px">
+            <button type="button" class="kktp-action primary" id="saveIdentity">Simpan Identitas</button>
+            <span id="identitySaveStatus" class="modul-status" role="status"></span>
+          </div>
+          <div class="identity-note"><strong>Penggunaan:</strong> Prota, Prosem, dan Modul Ajar akan mengambil nama serta NIP guru berdasarkan kelas yang dipilih. Pilihan kelas hanya VII, VIII, dan IX.</div>
+        </section>
+
+        <section class="identity-section">
+          <div class="identity-section-head">
             <div><h2>Karakteristik Pembelajaran</h2><p>Gambaran umum yang menjadi pertimbangan dalam merencanakan pembelajaran.</p></div>
           </div>
           <div class="identity-grid">
@@ -1363,6 +1432,59 @@
         activeClass = event.target.value;
         showPage('Identitas Pembelajaran', { pushHistory: false });
         updateClassView();
+      });
+
+      const principalName = document.getElementById('principalName');
+      const principalNip = document.getElementById('principalNip');
+      const principalTitle = document.getElementById('principalTitle');
+      const identityPlace = document.getElementById('identityPlace');
+      const identityDate = document.getElementById('identityDate');
+      const teacherList = document.getElementById('teacherIdentityList');
+      identityPlace.value = schoolIdentity.place || '';
+      identityDate.value = schoolIdentity.date || '';
+      principalName.value = schoolIdentity.principal.name || '';
+      principalNip.value = schoolIdentity.principal.nip || '';
+      principalTitle.value = schoolIdentity.principal.title || 'Kepala Sekolah';
+
+      function renderTeacherIdentityList() {
+        teacherList.innerHTML = schoolIdentity.teachers.map((t, i) => `
+          <article class="identity-plan" data-teacher-index="${i}" style="margin-bottom:12px">
+            <div class="identity-plan-grid">
+              <div class="identity-field"><label>Nama Guru</label><input type="text" class="teacher-name" value="${escIdentity(t.name)}" placeholder="Nama dan gelar guru"></div>
+              <div class="identity-field"><label>NIP Guru</label><input type="text" class="teacher-nip" value="${escIdentity(t.nip)}" placeholder="NIP guru"></div>
+              <div class="identity-field" style="grid-column:1/-1">
+                <label>Kelas yang Diajar</label>
+                <div style="display:flex;gap:18px;flex-wrap:wrap;padding:8px 0">
+                  ${['VII','VIII','IX'].map(c=>`<label style="display:flex;align-items:center;gap:6px;font-weight:600"><input type="checkbox" class="teacher-class" value="${c}" ${(t.classes||[]).includes(c)?'checked':''}> Kelas ${c}</label>`).join('')}
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="button" class="kktp-action" data-remove-teacher="${i}" ${schoolIdentity.teachers.length===1?'disabled':''}>Hapus Guru</button></div>
+          </article>`).join('');
+        teacherList.querySelectorAll('[data-remove-teacher]').forEach(btn => btn.addEventListener('click', () => {
+          if (schoolIdentity.teachers.length > 1) { schoolIdentity.teachers.splice(Number(btn.dataset.removeTeacher),1); renderTeacherIdentityList(); }
+        }));
+      }
+      function collectTeacherIdentity() {
+        return [...teacherList.querySelectorAll('[data-teacher-index]')].map((card,i)=>({
+          id: schoolIdentity.teachers[i]?.id || `guru-${Date.now()}-${i}`,
+          name: card.querySelector('.teacher-name').value.trim(),
+          nip: card.querySelector('.teacher-nip').value.trim(),
+          classes: [...card.querySelectorAll('.teacher-class:checked')].map(x=>x.value)
+        }));
+      }
+      renderTeacherIdentityList();
+      document.getElementById('addTeacher').addEventListener('click', () => {
+        schoolIdentity.teachers.push({id:`guru-${Date.now()}`,name:'',nip:'',classes:[]});
+        renderTeacherIdentityList();
+      });
+      document.getElementById('saveIdentity').addEventListener('click', () => {
+        schoolIdentity.principal = {name:principalName.value.trim(),nip:principalNip.value.trim(),title:principalTitle.value.trim()};
+        schoolIdentity.place = identityPlace.value.trim();
+        schoolIdentity.date = identityDate.value;
+        schoolIdentity.teachers = collectTeacherIdentity();
+        const ok = saveSchoolIdentity();
+        document.getElementById('identitySaveStatus').textContent = ok ? 'Identitas berhasil disimpan di browser ini.' : 'Penyimpanan gagal. Periksa kapasitas browser.';
       });
       closeMenu();
       return;
@@ -1565,13 +1687,13 @@
           <td><b>${esc(x.materi)}</b><div class="tp-list"><div class="tp"><b>Tujuan Pembelajaran:</b><br>${esc(x.tps).replace(/\n/g,'<br>')}</div><div class="tp"><b>Alur Tujuan Pembelajaran:</b><br>${esc(x.atps).replace(/\n/g,'<br>')}</div></div></td>
           <td class="center">${x.jp} JP</td><td class="center">${esc(x.meetings)}</td></tr>`).join('');
         const doc=`<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Prota Bahasa Sunda Kelas ${cls} ${semName} 2026/2027</title><style>
-        @page{size:A4 landscape;margin:11mm}*{box-sizing:border-box}body{font:9px Arial,sans-serif;color:#243447;margin:0}h1{font-size:18px;margin:0 0 4px;color:#24364b}h2{font-size:11px;margin:12px 0 6px;color:#405b4a}.sub{font-size:9px;color:#667085;margin-bottom:10px}.meta,.stats{display:flex;gap:14px;flex-wrap:wrap;border:1px solid #d8e0dc;padding:7px;margin-bottom:8px}.stats{border:0;padding:0}.stat{border:1px solid #d8e0dc;padding:6px 9px;min-width:110px}.stat b{display:block;font-size:12px;color:#405b4a;margin-top:3px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #cfd8d3;padding:5px;vertical-align:top}th{background:#eaf0ec;text-align:left;color:#344b3d}.center{text-align:center;white-space:nowrap}.tp{padding:3px 0;border-bottom:1px solid #e6ebe8;line-height:1.35}.tp:last-child{border:0}.schedule{width:65%;margin-top:5px}.note{margin-top:8px;color:#65736b;font-size:8px}.sign{display:flex;justify-content:space-between;align-items:flex-start;margin-top:16px}.sign>div{width:220px;min-height:105px;text-align:center}.sign div{text-align:center;width:220px;line-height:1.5}.space{height:34px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
+        @page{size:A4 landscape;margin:11mm}*{box-sizing:border-box}body{font:9px Arial,sans-serif;color:#243447;margin:0}h1{font-size:18px;margin:0 0 4px;color:#24364b}h2{font-size:11px;margin:12px 0 6px;color:#405b4a}.sub{font-size:9px;color:#667085;margin-bottom:10px}.meta,.stats{display:flex;gap:14px;flex-wrap:wrap;border:1px solid #d8e0dc;padding:7px;margin-bottom:8px}.stats{border:0;padding:0}.stat{border:1px solid #d8e0dc;padding:6px 9px;min-width:110px}.stat b{display:block;font-size:12px;color:#405b4a;margin-top:3px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #cfd8d3;padding:5px;vertical-align:top}th{background:#eaf0ec;text-align:left;color:#344b3d}.center{text-align:center;white-space:nowrap}.tp{padding:3px 0;border-bottom:1px solid #e6ebe8;line-height:1.35}.tp:last-child{border:0}.schedule{width:65%;margin-top:5px}.note{margin-top:8px;color:#65736b;font-size:8px}.sign{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;column-gap:24px;align-items:start;margin-top:8px;break-inside:avoid;page-break-inside:avoid}.sign>.signature-date{grid-column:1 / -1;width:auto!important;min-height:0!important;text-align:right!important;margin:0 0 6px!important;order:0;break-inside:avoid;page-break-inside:avoid}.sign>div:not(.signature-date){width:220px;min-height:0;text-align:center;justify-self:center;break-inside:avoid;page-break-inside:avoid}.sign div{text-align:center;line-height:1.5}.space{height:20px;break-inside:avoid;page-break-inside:avoid}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
         <h1>PROGRAM TAHUNAN (PROTA) BAHASA SUNDA</h1><div class="sub">SMP NEGERI 2 KADUHEJO · TAHUN AJARAN 2026/2027</div>
-        <div class="meta"><span><b>Kelas:</b> ${cls}</span><span><b>Semester:</b> ${semName}</span><span><b>Guru:</b> Iwan Ridwan Malik, S.Pd.</span><span><b>Kode Guru:</b> 7</span><span><b>Alokasi:</b> 2 JP/minggu</span></div>
+        <div class="meta"><span><b>Kelas:</b> ${cls}</span><span><b>Semester:</b> ${semName}</span><span><b>Guru:</b> ${escIdentity(teacherForClass(cls).name)}</span><span><b>Alokasi:</b> 2 JP/minggu</span></div>
         <div class="stats"><div class="stat">Minggu efektif<b>${info.weeks}</b></div><div class="stat">Alokasi semester<b>${info.jp} JP</b></div><div class="stat">Jumlah Bab<b>${rows.length}</b></div><div class="stat">Alokasi Bab<b>${totalJP} JP</b></div></div>
         <table><thead><tr><th style="width:4%">No.</th><th style="width:7%">Bab</th><th>Lingkup Materi, TP, jeung ATP</th><th style="width:8%">Alokasi</th><th style="width:17%">Estimasi Pertemuan</th></tr></thead><tbody>${body}</tbody></table>
         <div class="note">Catatan: Jumlah minggu efektif mengacu pada dokumen Kalender Efektif. Alokasi JP setiap bab bersifat fleksibel. Dalam satu pertemuan, beberapa ATP dapat dituntaskan sesuai kebutuhan pembelajaran.</div>
-        <div class="sign"><div>Mengetahui,<br>Plt. Kepala Sekolah<div class="space"></div><b>Heni Kurniasih, S.Pd.</b><br>NIP. 19760626 200801 2 014</div><div>Guru Mata Pelajaran<br>&nbsp;<div class="space"></div><b>Iwan Ridwan Malik, S.Pd.</b><br>NIP. 19840514 201101 1 003</div></div></body></html>`;
+        <div class="sign">${signatureMarkup(cls, "Guru Mata Pelajaran<br>Bahasa Sunda")}</div></body></html>`;
         const w=window.open('','_blank');if(!w){alert('Izinkan pop-up browser pikeun nyitak Prota.');return;}w.document.open();w.document.write(doc);w.document.close();w.focus();setTimeout(()=>w.print(),400);
       }
       pdfBtn.addEventListener('click',printProta);
@@ -1645,14 +1767,14 @@
         const monthHtml=Object.entries(monthly).map(([month,items])=>`<tr><th colspan="5">${escProsem(month)} · ${items.length} minggu · ${items.reduce((n,x)=>n+x.jp,0)} JP</th></tr>`+items.map(w=>`<tr><td>${w.week}</td><td>${escProsem(w.meeting)}</td><td>${escProsem(w.scope)}</td><td>${escProsem(w.distribution)}</td><td>${w.jp} JP</td></tr>`).join('')).join('');
         const chapterHtml=d.chapters.map(ch=>`<tr><td>${escProsem(ch.bab)}</td><td>${escProsem(ch.material)}</td><td>${escProsem(ch.tp).replace(/\n/g,'<br>')}</td><td>${escProsem(ch.atp).replace(/\n/g,'<br>')}</td><td>${ch.jp} JP</td></tr>`).join('');
         const doc=`<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><title>Prosem Bahasa Sunda Kelas ${cls} Semester ${sem} 2026/2027</title><style>
-        @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font:9px Arial,sans-serif;color:#263747;margin:0}h1{font-size:17px;margin:0 0 4px}h2{font-size:12px;margin:14px 0 6px;color:#405b4a}.sub{color:#687787;margin-bottom:9px}.meta,.stats{display:flex;gap:16px;flex-wrap:wrap;border:1px solid #d7dfda;padding:7px;margin-bottom:8px}.stats{border:0;padding:0}.stat{border:1px solid #d7dfda;padding:6px 10px}.stat b{display:block;font-size:12px;margin-top:3px;color:#405b4a}table{width:100%;border-collapse:collapse;margin:5px 0 10px}th,td{border:1px solid #cbd5d0;padding:5px;vertical-align:top}th{background:#eaf0ec;text-align:left}.month{background:#dce8e1;font-weight:bold}.chapter{page-break-inside:avoid}.note{font-size:8px;color:#66736b;margin:8px 0}.sign{display:flex;justify-content:space-between;align-items:flex-start;margin-top:16px}.sign>div{width:220px;min-height:105px;text-align:center;line-height:1.5}.space{height:34px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+        @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font:9px Arial,sans-serif;color:#263747;margin:0}h1{font-size:17px;margin:0 0 4px}h2{font-size:12px;margin:14px 0 6px;color:#405b4a}.sub{color:#687787;margin-bottom:9px}.meta,.stats{display:flex;gap:16px;flex-wrap:wrap;border:1px solid #d7dfda;padding:7px;margin-bottom:8px}.stats{border:0;padding:0}.stat{border:1px solid #d7dfda;padding:6px 10px}.stat b{display:block;font-size:12px;margin-top:3px;color:#405b4a}table{width:100%;border-collapse:collapse;margin:5px 0 10px}th,td{border:1px solid #cbd5d0;padding:5px;vertical-align:top}th{background:#eaf0ec;text-align:left}.month{background:#dce8e1;font-weight:bold}.chapter{page-break-inside:avoid}.note{font-size:8px;color:#66736b;margin:8px 0}.sign{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;column-gap:24px;align-items:start;margin-top:8px;break-inside:avoid;page-break-inside:avoid}.sign>.signature-date{grid-column:1 / -1;width:auto!important;min-height:0!important;text-align:right!important;margin:0 0 6px!important;order:0;break-inside:avoid;page-break-inside:avoid}.sign>div:not(.signature-date){width:220px;min-height:0;text-align:center;justify-self:center;line-height:1.35;break-inside:avoid;page-break-inside:avoid}.space{height:20px;break-inside:avoid;page-break-inside:avoid}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
         <h1>PROGRAM SEMESTER (PROSEM) BAHASA SUNDA</h1><div class="sub">SMP NEGERI 2 KADUHEJO · TAHUN AJARAN 2026/2027</div>
-        <div class="meta"><span><b>Kelas:</b> ${cls}</span><span><b>Semester:</b> ${sem}</span><span><b>Guru:</b> Iwan Ridwan Malik, S.Pd.</span><span><b>Kode Guru:</b> 7</span><span><b>Alokasi:</b> 2 JP/minggu</span></div>
+        <div class="meta"><span><b>Kelas:</b> ${cls}</span><span><b>Semester:</b> ${sem}</span><span><b>Guru:</b> ${escIdentity(teacherForClass(cls).name)}</span><span><b>Alokasi:</b> 2 JP/minggu</span></div>
         <div class="stats"><div class="stat">Minggu efektif<b>${info.weeks}</b></div><div class="stat">Alokasi semester<b>${info.jp} JP</b></div><div class="stat">Jumlah Bab<b>${d.chapters.length}</b></div></div>
         <h2>Distribusi Mingguan</h2><table><thead><tr><th>Minggu</th><th>Pertemuan</th><th>Bab / Lingkup Materi</th><th>Rincian distribusi JP</th><th>Alokasi</th></tr></thead><tbody>${monthHtml}</tbody></table>
         <h2>Rincian Bab, TP, dan ATP</h2><table><thead><tr><th>Bab</th><th>Lingkup Materi</th><th>Tujuan Pembelajaran</th><th>Alur Tujuan Pembelajaran</th><th>JP</th></tr></thead><tbody>${chapterHtml}</tbody></table>
         <div class="note">Catatan: Jumlah minggu efektif mengacu pada dokumen Kalender Efektif. Alokasi JP setiap bab bersifat fleksibel. Dalam satu pertemuan, beberapa ATP dapat dituntaskan sesuai kebutuhan pembelajaran. Nomor minggu menunjukkan urutan minggu efektif, bukan tanggal kalender.</div>
-        <div class="sign"><div>Mengetahui,<br>Plt. Kepala Sekolah<div class="space"></div><b>Heni Kurniasih, S.Pd.</b><br>NIP. 19760626 200801 2 014</div><div>Guru Mata Pelajaran<br>&nbsp;<div class="space"></div><b>Iwan Ridwan Malik, S.Pd.</b><br>NIP. 19840514 201101 1 003</div></div></body></html>`;
+        <div class="sign">${signatureMarkup(cls, "Guru Mata Pelajaran<br>Bahasa Sunda")}</div></body></html>`;
         const win=window.open('','_blank');if(!win){alert('Izinkan pop-up browser untuk mencetak Prosem.');return;}win.document.open();win.document.write(doc);win.document.close();win.focus();setTimeout(()=>win.print(),400);
       }
       classEl.addEventListener('change',()=>{activeClass=classEl.value;updateClassView();renderProsem();});
@@ -1798,10 +1920,10 @@
             field('Refleksi Guru',safe(d.reflectionTeacher||'Belum diisi.'))+
             field('Refleksi Murid',safe(d.reflectionStudent||'Belum diisi.')))}
           <div class="signature-page">
-            <div class="signature-date">Pandeglang, ................................ 2026</div>
+            <div class="signature-date">${signatureDateLine()}</div>
             <div class="signature-grid">
-              <div><div class="signature-role">Mengetahui,<br>Plt. Kepala Sekolah</div><div class="signature-name">Heni Kurniasih, S.Pd.</div><div class="signature-nip">NIP. 19760626 200801 2 014</div></div>
-              <div><div class="signature-role">Guru Mata Pelajaran<br>Bahasa Sunda</div><div class="signature-name">Iwan Ridwan Malik, S.Pd.</div><div class="signature-nip">NIP. 19840514 201101 1 003</div></div>
+              <div><div class="signature-role">Mengetahui,<br>${escIdentity(schoolIdentity.principal.title || "Kepala Sekolah")}</div><div class="signature-name">${escIdentity(schoolIdentity.principal.name || "")}</div><div class="signature-nip">NIP. ${escIdentity(schoolIdentity.principal.nip || "")}</div></div>
+              <div><div class="signature-role">Guru Mata Pelajaran<br>Bahasa Sunda</div><div class="signature-name">${escIdentity(teacherForClass(m.kelas).name || "")}</div><div class="signature-nip">NIP. ${escIdentity(teacherForClass(m.kelas).nip || "")}</div></div>
             </div>
             <div class="foot">ROHANG DIGITAL · Modul Ajar Bahasa Sunda · Tahun Ajaran 2026/2027</div>
           </div>
