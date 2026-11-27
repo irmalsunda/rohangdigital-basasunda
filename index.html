@@ -95,6 +95,26 @@
       border: 1px solid #eadfce; flex: 0 0 auto;
     }
     .avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+    .login-trigger{border:1px solid #dce7df;background:#edf4ef;color:#365b48;border-radius:22px;padding:9px 15px;font:700 11px inherit;cursor:pointer;white-space:nowrap;transition:.2s}
+    .login-trigger:hover{background:#dfece3;transform:translateY(-1px)}
+    .login-trigger.logged{background:#f7f4eb;border-color:#e9dfc9;color:#76623d}
+    .visitor-modal{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(20,35,48,.48);backdrop-filter:blur(5px)}
+    .visitor-modal.show{display:flex}
+    body.visitor-locked{overflow:hidden}
+    body.visitor-locked .main,body.visitor-locked .sidebar{pointer-events:none;user-select:none}
+    .visitor-card{width:min(100%,420px);background:#fff;border:1px solid #e6ece7;border-radius:20px;padding:27px;box-shadow:0 22px 70px rgba(20,35,48,.22);position:relative}
+    .visitor-card h2{margin:0 0 7px;color:var(--navy);font-size:22px}
+    .visitor-card p{margin:0 0 20px;color:var(--muted);font-size:12px;line-height:1.6}
+    .visitor-field{display:block;margin:0 0 14px;color:#52675b;font-size:11px;font-weight:750}
+    .visitor-field input{display:block;width:100%;box-sizing:border-box;margin-top:7px;border:1px solid #dce5de;border-radius:10px;padding:12px 13px;font:14px inherit;color:var(--ink);outline:none;background:#fbfcfb}
+    .visitor-field input:focus{border-color:#88a995;box-shadow:0 0 0 3px rgba(136,169,149,.14)}
+    .visitor-actions{display:flex;gap:9px;margin-top:20px}
+    .visitor-actions button{flex:1;border:0;border-radius:10px;padding:12px;font-weight:750;cursor:pointer}
+    .visitor-cancel{background:#f1f4f1;color:#617166}
+    .visitor-submit{background:#294b3b;color:white}
+    .visitor-status{min-height:18px;margin-top:12px;color:#6b7e70;font-size:11px;line-height:1.5}
+    .visitor-close{position:absolute;right:15px;top:13px;border:0;background:transparent;color:#829087;font-size:22px;cursor:pointer}
+    @media(max-width:560px){.topbar{padding:0 12px}.top-right{gap:7px}.login-trigger{padding:8px 10px;font-size:10px}.year-pill{display:none}.visitor-card{padding:23px}}
     .global-class-wrap { display:flex; align-items:center; gap:6px; padding:6px 9px; border:1px solid #e3eae3; border-radius:22px; background:#f7f9f7; color:#718477; font-size:9px; font-weight:800; letter-spacing:.6px; }
     .global-class-picker { border:0; outline:0; background:transparent; color:#43584c; font:inherit; font-size:11px; font-weight:800; cursor:pointer; }
     .mobile-menu {
@@ -422,6 +442,22 @@
     .material-link.primary{background:#557b62;color:#fff}
     .material-no-mpi{font-size:10px;color:#8a938d;font-style:italic}
     @media(max-width:760px){.material-grid{grid-template-columns:1fr}.material-filter{align-items:stretch;flex-direction:column;gap:12px}.material-filter select{width:100%}}
+
+  /* Navigasi berurutan ant halaman */
+  .page-step-nav{display:flex;justify-content:space-between;align-items:center;gap:14px;
+    margin:28px 0 8px;padding:16px 0 4px;border-top:1px solid var(--line,#dce5de)}
+  .page-step-btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    min-height:42px;padding:10px 17px;border:1px solid #cbd8ce;border-radius:10px;
+    background:#fff;color:#405b4b;font:600 13px inherit;cursor:pointer;transition:.2s}
+  .page-step-btn:hover:not(:disabled){background:#edf4ee;border-color:#91aa98}
+  .page-step-btn:disabled{opacity:.38;cursor:not-allowed}
+  .page-step-label{font-size:11px;color:#7a887e;text-align:center}
+  @media(max-width:600px){
+    .page-step-nav{gap:8px}
+    .page-step-btn{padding:9px 11px;font-size:12px;min-height:40px}
+    .page-step-label{display:none}
+  }
+
 </style>
 </head>
 <body>
@@ -451,6 +487,25 @@
     </div>
   </aside>
   <div class="overlay" id="overlay"></div>
+  <div class="visitor-modal" id="visitorModal" role="dialog" aria-modal="true" aria-labelledby="visitorTitle">
+    <form class="visitor-card" id="visitorLoginForm">
+      <button class="visitor-close" id="visitorClose" type="button" aria-label="Tutup">×</button>
+      <h2 id="visitorTitle">Login Pengunjung</h2>
+      <p>Silakan isi identitas untuk mencatat kunjungan ke ROHANG DIGITAL.</p>
+      <label class="visitor-field">Ngaran
+        <input id="visitorName" name="nama" type="text" maxlength="100" autocomplete="name" placeholder="Masukkan nama" required>
+      </label>
+      <label class="visitor-field">Asal Instansi
+        <input id="visitorInstitution" name="asal" type="text" maxlength="150" autocomplete="organization" placeholder="Contoh: SMP Negeri ..." required>
+      </label>
+      <div class="visitor-actions">
+        <button class="visitor-cancel" id="visitorCancel" type="button">Batal</button>
+        <button class="visitor-submit" id="visitorSubmit" type="submit">Login</button>
+      </div>
+      <div class="visitor-status" id="visitorStatus" aria-live="polite"></div>
+    </form>
+  </div>
+
 
   <main class="main">
     <header class="topbar">
@@ -467,6 +522,7 @@
             <option value="IX">IX</option>
           </select>
         </label>
+        <button class="login-trigger" id="visitorLoginBtn" type="button">Login Pengunjung</button>
         <div class="year-pill">TAHUN AJARAN 2026/2027</div>
         <div class="avatar" title="Foto Profil"><img src="assets/foto-profil.png" alt="Foto profil" onerror="this.style.display='none';this.parentElement.textContent='G'"></div>
       </div>
@@ -587,6 +643,79 @@
     catch (e) { return false; }
   };
   const escIdentity = v => String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Login pengunjung ROHANG DIGITAL: ID perangkat dipakai ulang agar satu browser tidak membuat baris ganda.
+  const VISITOR_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxKZ7xOqBHaptQ3rMJs_ta3V8D6YIo5c5Ekc8P__Fj_eMOlhLottJUEFa6V76OR4N28/exec';
+  const visitorStorageKey = 'rohangDigitalVisitor_v1';
+  const visitorDeviceKey = 'rohangDigitalDeviceId_v1';
+  const visitorModal = document.getElementById('visitorModal');
+  const visitorForm = document.getElementById('visitorLoginForm');
+  const visitorLoginBtn = document.getElementById('visitorLoginBtn');
+  const visitorName = document.getElementById('visitorName');
+  const visitorInstitution = document.getElementById('visitorInstitution');
+  const visitorStatus = document.getElementById('visitorStatus');
+  const visitorSubmit = document.getElementById('visitorSubmit');
+  const visitorCancel = document.getElementById('visitorCancel');
+  const visitorClose = () => { if (visitorAuthenticated) visitorModal.classList.remove('show'); };
+  const getVisitorDeviceId = () => {
+    let id = localStorage.getItem(visitorDeviceKey);
+    if (!id) {
+      const randomId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+      id = 'RD-' + randomId;
+      localStorage.setItem(visitorDeviceKey, id);
+    }
+    return id;
+  };
+  const savedVisitor = (() => { try { return JSON.parse(localStorage.getItem(visitorStorageKey) || '{}') || {}; } catch(e) { return {}; } })();
+  let visitorAuthenticated = Boolean(savedVisitor.nama && savedVisitor.asal);
+  const refreshVisitorButton = () => {
+    if (savedVisitor.nama && savedVisitor.asal) {
+      visitorLoginBtn.textContent = savedVisitor.nama;
+      visitorLoginBtn.classList.add('logged');
+      visitorLoginBtn.title = 'Ubah identitas pengunjung';
+    }
+  };
+  visitorName.value = savedVisitor.nama || '';
+  visitorInstitution.value = savedVisitor.asal || '';
+  refreshVisitorButton();
+  visitorLoginBtn.addEventListener('click', () => { visitorStatus.textContent = ''; visitorModal.classList.add('show'); visitorName.focus(); });
+  // Pengunjung anyar wajib login heula samemeh eusi Beranda bisa diaksés.
+  if (!visitorAuthenticated) {
+    visitorModal.classList.add('show');
+    document.body.classList.add('visitor-locked');
+    visitorCancel.style.display = 'none';
+    document.getElementById('visitorClose').style.display = 'none';
+    visitorName.focus();
+  }
+  document.getElementById('visitorCancel').addEventListener('click', visitorClose);
+  document.getElementById('visitorClose').addEventListener('click', visitorClose);
+  visitorModal.addEventListener('click', e => { if (e.target === visitorModal && visitorAuthenticated) visitorClose(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && visitorModal.classList.contains('show') && visitorAuthenticated) visitorClose(); });
+  visitorForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const nama = visitorName.value.trim();
+    const asal = visitorInstitution.value.trim();
+    if (!nama || !asal) { visitorStatus.textContent = 'Ngaran jeung asal instansi kedah dieusian.'; return; }
+    visitorSubmit.disabled = true; visitorSubmit.textContent = 'Mengirim...';
+    visitorStatus.textContent = 'Sedang mengirim data kunjungan...';
+    const payload = { deviceId: getVisitorDeviceId(), nama, asal, app: 'ROHANG' };
+    try {
+      // Endpoint Apps Script menerima POST; mode no-cors diperlukan untuk pengiriman lintas domain.
+      await fetch(VISITOR_SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+      localStorage.setItem(visitorStorageKey, JSON.stringify({ nama, asal }));
+      savedVisitor.nama = nama; savedVisitor.asal = asal;
+      visitorAuthenticated = true;
+      document.body.classList.remove('visitor-locked');
+      visitorCancel.style.display = '';
+      document.getElementById('visitorClose').style.display = '';
+      refreshVisitorButton();
+      visitorStatus.textContent = 'Data dikirim. Hatur nuhun parantos nganjang!';
+      setTimeout(visitorClose, 900);
+    } catch (err) {
+      visitorStatus.textContent = 'Data can dikirim. Pariksa sambungan internét, teras cobian deui.';
+    } finally { visitorSubmit.disabled = false; visitorSubmit.textContent = 'Login'; }
+  });
+
   const teacherForClass = cls => schoolIdentity.teachers.find(t => (t.classes || []).includes(cls)) || {name:'',nip:''};
   const formatIdentityDate = value => {
     if (!value) return '................................';
@@ -2180,6 +2309,42 @@
     });
   }
 
+  // Tombol Kembali/Selanjutnya dipasang otomatis dina unggal halaman aplikasi.
+  function renderPageStepNav() {
+    const existing = pageContent.querySelector('.page-step-nav');
+    if (existing) existing.remove();
+    const pages = ['Beranda', ...navButtons.map(btn => btn.dataset.page)];
+    const index = pages.indexOf(currentPage);
+    // Beranda henteu maké tombol Kembali/Selanjutnya.
+    if (index <= 0) return;
+    const nav = document.createElement('nav');
+    nav.className = 'page-step-nav';
+    nav.setAttribute('aria-label', 'Navigasi halaman');
+    nav.innerHTML = `
+      <button type="button" class="page-step-btn" data-step="prev" ${index === 0 ? 'disabled' : ''}>
+        <span aria-hidden="true">←</span> Kembali
+      </button>
+      <span class="page-step-label">Halaman ${index + 1} tina ${pages.length}</span>
+      <button type="button" class="page-step-btn" data-step="next" ${index === pages.length - 1 ? 'disabled' : ''}>
+        Selanjutnya <span aria-hidden="true">→</span>
+      </button>`;
+    pageContent.appendChild(nav);
+  }
+
+  pageContent.addEventListener('click', event => {
+    const button = event.target.closest('[data-step]');
+    if (!button || button.disabled) return;
+    const pages = ['Beranda', ...navButtons.map(btn => btn.dataset.page)];
+    const index = pages.indexOf(currentPage);
+    const nextIndex = index + (button.dataset.step === 'next' ? 1 : -1);
+    if (pages[nextIndex]) showPage(pages[nextIndex]);
+  });
+
+  const pageNavObserver = new MutationObserver(() => {
+    if (!pageContent.querySelector('.page-step-nav')) renderPageStepNav();
+  });
+  pageNavObserver.observe(pageContent, { childList: true });
+
   navButtons.forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
   window.addEventListener('popstate', event => {
     const previousPage = event.state && event.state.ruangRencanaPage
@@ -2203,11 +2368,22 @@
     overlay.classList.toggle('show');
   });
   overlay.addEventListener('click', closeMenu);
-  if (!history.state || !history.state.ruangRencanaPage) {
-    history.replaceState({ ruangRencanaPage: 'Beranda' }, '', location.pathname + location.search + '#page=Beranda');
+  // Pulihkan halaman terakhir tina URL hash nalika browser di-refresh.
+  const validPages = ['Beranda', ...navButtons.map(btn => btn.dataset.page)];
+  const hashMatch = location.hash.match(/(?:^#|&)page=([^&]+)/);
+  let restoredPage = 'Beranda';
+  if (hashMatch) {
+    try {
+      const candidate = decodeURIComponent(hashMatch[1]);
+      if (validPages.includes(candidate)) restoredPage = candidate;
+    } catch (error) {}
   }
+  history.replaceState({ ...(history.state || {}), ruangRencanaPage: restoredPage }, '',
+    location.pathname + location.search + '#page=' + encodeURIComponent(restoredPage));
+
   bindCards();
   updateClassView();
+  showPage(restoredPage, { pushHistory: false });
   // Delegated listener: tetap aktif meskipun Beranda dibangun ulang setelah navigasi.
   document.addEventListener('change', event => {
     if (event.target.id === 'classSelector' || event.target.id === 'globalClassSelector') {
